@@ -1,0 +1,7 @@
+{
+"version": 3,
+"mappings": "AAGA,IAAK;EACJ,gBAAgB,EAJC,OAAO",
+"sources": ["globalStyles.scss"],
+"names": [],
+"file": "globalStyles.css"
+}
