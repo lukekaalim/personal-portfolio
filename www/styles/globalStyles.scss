@@ -22,18 +22,19 @@ canvas {
     background-color: $secondary-color;
     
     h1 {
-        text-shadow: 1px 1px 0 red, -1px -1px 0 cyan;
+        text-shadow: 2px 0px 4px red, -2px 0px 4px cyan;
         
         margin: 0;
         color: white;
+        opacity: 0.8;
         
         transition: all 1s;
         
         text-align: center;
         
         &:hover {
-            text-shadow: 3px 1px 0 red, -3px -1px 0 cyan;
-            opacity: 0.5;
+            text-shadow: 0px 0px 0 white, 0px 0px 0 white;
+            opacity: 1;
             transition: all 1s;
         }
     }
