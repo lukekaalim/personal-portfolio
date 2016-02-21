@@ -20,8 +20,6 @@ body {
     font-family: 'Roboto', sans-serif;
 }
 
-
-
 /*
 	
 	The Presentation container refers to the element that holds the top half of the site, in charge of
@@ -30,6 +28,8 @@ body {
 */
 .presentation-container {
 	
+	overflow:hidden;
+	
     height: 100%;
     width: 100%;
 	margin: 0;
@@ -37,43 +37,63 @@ body {
 	
 	
     .name-container {
-		position: relative;
+		position: absolute;
 		top: 50%;
 		transform: translateY(-50%);
+		width: 100%;
 		
 		text-align: center;
 		
 		font-family: 'Montserrat', sans-serif;
 		
-		perspective: 150;
-		-webkit-perspective: 150;
-		
-		h1, h2 {
-			@keyframes intro-chromatic-abberation-horizontal {
+		//animations
+		@keyframes intro-chromatic-abberation-horizontal {
 				0% {
 					text-shadow: 400px 0px 8px rgba(255, 0, 0,1),  -400px -0px 8px rgba(0,255,255,1);
 					color: rgba(0,0,0,0);
 					opacity: 0;
 				}
-				 80% {
+				75% {
 					 opacity: 1;
 					 color: rgba(0,0,0,0);
 				 }
-				100% { 
-					text-shadow: 2px 0px 3px rgba(255, 0, 0,1), -2px 0px 3px rgba(0,255,255,1);
-					color: rgba(255,255,255,1);
+				 100% {
+					 color: white;
 				 }
 			}
+		
+		@keyframes outro-unfocus {
+			0% {
+			}
+			100% {
+				opacity: 0;
+			}
+		}
+		
+		&.intro {
+			h1, h2 {
+				animation-name: intro-chromatic-abberation-horizontal;
+			}
+			h2 {
+				animation-delay: 1s;
+			}
+		}
+		
+		&.outro {
+			h1, h2 {
+				animation-name: outro-unfocus;
+				animation-duration: .25s;
+			}
+		}
+		
+		h1, h2 {
+			text-shadow: 2px 0px 3px rgba(255, 0, 0,1), -2px 0px 3px rgba(0,255,255,1);
+			color: white;
 			
-			position: relative;
-			perspective: 150;
-			-webkit-perspective: 150;
+			animation-fill-mode: both;
+			animation-duration: .9s;
 			
 			margin: 0;
-			
-			animation-name: intro-chromatic-abberation-horizontal;
-			animation-duration: 1.5s;
-			animation-fill-mode: both;
 		}
 		
 		h1 {
@@ -82,15 +102,14 @@ body {
 		
 		h2 {
 			font-size: 3vw;
-			animation-delay: 1.3s;
 		}
 	}
 	
 	canvas { 
     	width: 100%; 
     	height: 100%; 
-    	position: absolute;
-		z-index: -1;
+    	position: static;
+		z-index: 0;
 	}
 }
 

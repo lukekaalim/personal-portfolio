@@ -54,6 +54,27 @@ var Engine =
 		return scene;
 	},
 	
+	CreateDefaultScene : function(canvas)
+	{
+		var scene = new THREE.Scene();
+		var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+		var renderer = new THREE.WebGLRenderer({"canvas":canvas, "alpha": true});
+		renderer.setSize( window.innerWidth, window.innerHeight );
+
+		camera.position.z = 5;
+
+		Engine.StartRenderLoop([scene],[camera],renderer);
+		
+		window.onresize = function()
+		{
+			camera.aspect =  window.innerWidth/window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+		}
+		
+		return scene;
+	},
+	
 	//Do not rely on objects being in the same index you inserted them in.
 	Update : [],
 	
@@ -526,4 +547,31 @@ var Editor =
 	//Same deal, excelpt the object to listen to is a Key
 	KeypressDetect : new Map(),
 	KeyreleaseDetect : new Map()
+}
+
+var Tools = 
+{
+	PrefixedEvent : function(element, type, callback)
+	{
+		var pfx = ["webkit", "moz", "MS", "o", ""];
+		for (var p = 0; p < pfx.length; p++)
+		{
+			if (!pfx[p])
+			{
+				type = type.toLowerCase();
+			}
+			element.addEventListener(pfx[p]+type, callback, false);
+		}
+	},
+	
+	SetClassAtEndOfAnimation : function(animtingElement, targetElement, delay, newClass)
+	{
+		Tools.PrefixedEvent(animtingElement,"animationend", function()
+		{
+			setTimeout(function()
+				{
+					targetElement.className = newClass;
+				}, delay * 1000);
+		});
+	}
 }
