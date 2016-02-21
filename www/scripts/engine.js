@@ -1,18 +1,23 @@
-var Engine =
+var Engine = function(renderCanvas,editorMode)
 {
-	//Get Engine Version
-	Version : function()
+    //Constructor
+    
+    //Always be able to refer to the engine in other functions
+	var engine = this;
+    
+    //if we should start in editor mode.
+	this.EditorEnabled = editorMode;
+	if(this.EditorEnabled)
 	{
-		return "0.4";
-	},
-	
-	EditorEnabled : true,
-	
-	Renderer : null,
+		this.localEditor = new Editor();
+	}
+    
+    //create the renderer
+	var renderer = new THREE.WebGLRenderer({"canvas":renderCanvas, "alpha": true});
 
 	//Takes in a JSON formatted Object, containing the position and rotation and scale properties of all objects in a scene, as well as their name.
 	//objectList is a map for which object to use in regards to a particular name
-	LoadScene : function (sceneData)
+	this.LoadScene = function (sceneData)
 	{
 		var scene = new THREE.Scene();
 		
@@ -21,13 +26,13 @@ var Engine =
 			var objectName = sceneData[i]["Name"];
 			var object;
 			
-			if(Engine.AssetMap[objectName])
+			if(engine.AssetMap[objectName])
 			{
-				object = Engine.AssetMap[objectName];
+				object = engine.AssetMap[objectName];
 			}
-			else if(Engine.GeometryMap[objectName])
+			else if(engine.GeometryMap[objectName])
 			{
-				object = new THREE.Mesh( Engine.GeometryMap[objectName], new THREE.MeshBasicMaterial( { color: "white" } ) );
+				object = new THREE.Mesh( engine.GeometryMap[objectName], new THREE.MeshBasicMaterial( { color: "white" } ) );
 			}
 			else
 			{
@@ -46,24 +51,26 @@ var Engine =
 			
 			scene.add(object);
 			
-			if(Engine.EditorEnabled)
+			if(engine.EditorEnabled)
 			{
 				Editor.SelectionTargets.set(object,function(object){return function(){ Editor.SelectObject(object); }}(object));
 			}
 		}
 		return scene;
-	},
+	}
 	
-	CreateDefaultScene : function(canvas)
+	//This initialized a default scene, with the camera offset by 5 units backwards.
+	this.CreateDefaultScene = function(canvas)
 	{
 		var scene = new THREE.Scene();
-		var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-		var renderer = new THREE.WebGLRenderer({"canvas":canvas, "alpha": true});
+		var camera = new THREE.PerspectiveCamera( 90, window.innerWidth/window.innerHeight, 0.1, 1000 );
 		renderer.setSize( window.innerWidth, window.innerHeight );
-
+		
+		scene.add(camera);
 		camera.position.z = 5;
-
-		Engine.StartRenderLoop([scene],[camera],renderer);
+		
+		engine.AddRenderingCameraPair(scene,camera);
+		engine.StartRenderLoop();
 		
 		window.onresize = function()
 		{
@@ -73,39 +80,99 @@ var Engine =
 		}
 		
 		return scene;
-	},
+	}
 	
 	//Do not rely on objects being in the same index you inserted them in.
-	Update : [],
+	var update = [];
 	
-	StartRenderLoop : function(scenes,cameras,renderer)
+	this.RegisterForUpdate = function(updateFunction)
 	{
-		Engine.Renderer = renderer;
-		renderer.autoClear = false;
-		if(scenes.length > cameras.length)
+		if(typeof updateFunction === "function")
 		{
-			scenes = scenes.slice(0, cameras.length);
+			update.push(updateFunction);
 		}
 		
-		var renderLoop = function()
+		return true;
+	}
+	
+	this.RemoveUpdate = function(updateFuntcion)
+	{
+		var indexOfFunction = -1;
+		update.forEach(function(currentFunction,index)
 		{
-			for(var i = 0; i < Engine.Update.length; i++)
+			if(currentFunction == updateFuntcion)
 			{
-				Engine.Update[i]();
+				indexOfFunction = index;
 			}
-			
-			renderer.clear();   
-			for(var i = 0; i < scenes.length; i++)
+		});
+		
+		if(indexOfFunction == -1)
+		{
+			return false;
+		}
+		else
+		{
+			update.splice(indexOfFunction,1);
+		}
+	}
+	
+	//Array containing scenes and cameras.
+	//To select a camera, just grab index + 1.
+	//To select a scene, grab index.
+	var renderingCameraPair = [];
+	
+	var isRendering = false;
+	
+	this.AddRenderingCameraPair = function(scene,camera)
+	{
+		renderingCameraPair.push(scene,camera);
+		
+		isRendering = true;
+	};
+	
+	this.RemoveRenderingCameraPair = function(scene,camera)
+	{
+		for(var i = 0; i < renderingCameraPair.length; i += 2)
+		{
+			if(renderingCameraPair[i] == scene && renderingCameraPair[i+1] == camera)
 			{
-				renderer.render( scenes[i], cameras[i] );
+				renderingCameraPair.splice(i,2);
+			}
+		}
+		
+		if(renderingCameraPair.length == 0)
+		{
+			isRendering = false;
+		}
+	};
+	
+	//The render loop is the function that repeats itself every time the browser requests an animation refresh.
+	
+	this.StartRenderLoop = function(scene,camera)
+	{
+		renderer.autoClear = false;
+		
+		var renderLoop = function(lastTime)
+		{
+			update.forEach(function(currentValue)
+			{
+				currentValue();
+			});
+			 
+			for (var i = 0, len = renderingCameraPair.length; i < len; i += 2)
+			{
+				renderer.render( renderingCameraPair[i], renderingCameraPair[i+1] );
 				renderer.clearDepth();   
 			}
+			
 			requestAnimationFrame(renderLoop);
 		}
 		
 		requestAnimationFrame(renderLoop);
-	},
+	}
 	
+	
+
 	//Downloads Assets Based off the following Object Syntax:
 	/*
 	
@@ -116,7 +183,7 @@ var Engine =
 	//Once downloaded, they are saved the Asset Map by their name;
 	//Assets cannot have conflicting names, the newer name will always ovveride the older one
 	*/
-	DownloadAssets : function (assetsToLoad,completionCallback)
+	this.DownloadAssets = function (assetsToLoad,completionCallback)
 	{
 		//the amount of individual assets to load.
 		var assetCount = assetsToLoad.length;
@@ -152,7 +219,7 @@ var Engine =
 						//On asset Load Completion
 						if (request.readyState == 4 && request.status == 200)
 						{
-							Engine.ParseAssets(request.responseText,assetData);
+							engine.ParseAssets(request.responseText,assetData);
 							assetsLoaded++;
 							
 							if(assetCount == assetsLoaded)
@@ -177,7 +244,7 @@ var Engine =
 				var image = loader2d.load(assetData.url,
 					function (image)
 					{
-						Engine.ParseAssets(image,assetData);
+						engine.ParseAssets(image,assetData);
 						completionCallback();
 					}
 				);
@@ -186,11 +253,11 @@ var Engine =
 				continue;
 			}
 			
-			Engine.ParseAssets(assetData.source,assetData);
+			engine.ParseAssets(assetData.source,assetData);
 		}
 	},
 	
-	ParseAssets : function (source, referenceData)
+	this.ParseAssets = function (source, referenceData)
 	{
 		//Dependencies
 		var loader3d = new THREE.JSONLoader();
@@ -218,54 +285,67 @@ var Engine =
 				}
 				
 				//Add the model.
-				Engine.AssetMap[assetName] = model;
+				this.AssetMap[assetName] = model;
 			}
 		}
 		
 		if(referenceData.type == "model")
 		{
 			var geometry = loader3d.parse(JSON.parse(source)).geometry;
-			Engine.GeometryMap[referenceData.name] = geometry;
+			engine.GeometryMap[referenceData.name] = geometry;
 		}
 		
 		if(referenceData.type == "scene")
 		{
 			var scene = JSON.parse(source)["AllObjects"];
-			Engine.AssetMap[referenceData.name] = scene;
+			engine.AssetMap[referenceData.name] = scene;
 		}
 		
 		if(referenceData.type == "image")
 		{
-			Engine.AssetMap[referenceData.name] = source;
+			engine.AssetMap[referenceData.name] = source;
 		}
-	},
+	}
 	
 	//Map containg all Assets
-	AssetMap : {},
-	GeometryMap : {}
+	this.AssetMap = {};
+	this.GeometryMap = {};
 };
 
+//Static Properties and Functions
+
+Engine.Version = "0.6";
+Engine.Animation = {
+	//Position is a float from 0 to 1;
+	"easeOut" : function(start,end,position)
+	{
+		var t = position;
+		t = Math.Sin(t * Math.PI * 0.5);
+		return t;
+	}
+}
 
 
-var Editor = 
+
+var Editor = function()
 {
 	
-	Mouse :
+	this.Mouse =
 	{
 		Button0 : false,
 		Button1 : false,
 		Button2 : false,
 		Position : new THREE.Vector2()
-	},
+	};
 	
-	MiddleMouseDown : false,
+	this.MiddleMouseDown = false;
 	
-	Mouse0Down : false,
+	this.Mouse0Down = false;
 	
-	CameraRotation : 0,
-	CameraMovement : new THREE.Vector3,
+	this.CameraRotation = 0;
+	this.CameraMovement = new THREE.Vector3;
 	
-	ConsoleWindow : 
+	this.ConsoleWindow =
 	{
 		Init : function()
 		{
@@ -291,14 +371,15 @@ var Editor =
 		Info : new Map(),
 		
 		Window : null
-	},
+	};
 	
-	InitDebugControls : function(camera)
+	this.InitDebugControls = function(camera)
 	{
 		document.oncontextmenu = document.body.oncontextmenu = function() {return false;}
 		
 		document.addEventListener("mousedown",function(event)
 		{
+			
 			//For Mouse button tracking
 			if(event.button == 1)
 			{
@@ -314,14 +395,14 @@ var Editor =
 				Editor.Mouse.Button0 = true;
 				Editor.Mouse0Down = true;
 				
-				raycaster = new THREE.Raycaster();
+				var raycaster = new THREE.Raycaster();
 				var mouse = new THREE.Vector2();
 				mouse.x = ( event.clientX / Engine.Renderer.domElement.clientWidth ) * 2 - 1;
 				mouse.y = - ( event.clientY / Engine.Renderer.domElement.clientHeight ) * 2 + 1;
 				
 				raycaster.setFromCamera( mouse, camera );
 				
-				objects = [];
+				var objects = [];
 				
 				for (var key of Editor.SelectionTargets.keys()) {
 				  objects.push(key);
@@ -488,9 +569,9 @@ var Editor =
 		//Returns the Scene that needs to be fed into the render loop.
 		
 		return Editor.GizmoScene;
-	},
+	};
 	
-	MakeDraggable : function(objectToDrag,onStartDrag,whileDragging,onEndDrag)
+	this.MakeDraggable = function(objectToDrag,onStartDrag,whileDragging,onEndDrag)
 	{
 		Editor.SelectionTargets.set(objectToDrag,function()
 		{
@@ -510,18 +591,18 @@ var Editor =
 			
 			Engine.Update.push(updateFunction);
 		});
-	},
+	};
 	
-	GizmoScene : new THREE.Scene(),
+	this.GizmoScene = new THREE.Scene();
 	
-	Handle : null,
+	this.Handle = null;
 	
-	HandleGrab : function()
+	this.HandleGrab = function()
 	{
 		
-	},
+	};
 	
-	SelectObject : function(object)
+	this.SelectObject = function(object)
 	{
 		Editor.SelectedObject = object;
 		if(object)
@@ -537,16 +618,16 @@ var Editor =
 		}
 		
 		Editor.ConsoleWindow.Update();
-	},
+	};
 	
-	SelectedObject : null,
+	this.SelectedObject = null;
 	
 	//To add a selection target, simply do
 	//Editor.SelectionTarget.set(objectToListenTo,callback);
-	SelectionTargets : new Map(),
+	this.SelectionTargets = new Map();
 	//Same deal, excelpt the object to listen to is a Key
-	KeypressDetect : new Map(),
-	KeyreleaseDetect : new Map()
+	this.KeypressDetect = new Map();
+	this.KeyreleaseDetect = new Map();
 }
 
 var Tools = 
